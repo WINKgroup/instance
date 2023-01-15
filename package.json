@@ -1,6 +1,6 @@
 {
   "name": "@winkgroup/instance",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "service discovery based on Mongo",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
