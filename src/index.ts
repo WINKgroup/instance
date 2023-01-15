@@ -85,6 +85,11 @@ export default class Instance {
         return this.singleton
     }
 
+    static getOrSetup(input:InstanceInput) {
+        if (this.singleton) return this.singleton
+        return this.setup(input)
+    }
+
     static get() {
         if (!this.singleton) throw new Error('setup required to get Instance object')
         return this.singleton
