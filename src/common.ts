@@ -8,5 +8,6 @@ export interface InstanceService {
 
 export interface IInstance extends NetworkInfo {
     name: string
+    host: string
     services: InstanceService[]
 }

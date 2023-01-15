@@ -8,6 +8,7 @@ import { IInstanceDoc, IInstanceModel, schema } from './model'
 export interface InstanceInput extends Partial<NetworkParams> {
     dbUri: string
     name: string
+    host: string
     consoleLog?: ConsoleLog
 }
 
@@ -18,10 +19,12 @@ export default class Instance {
     services = [] as InstanceService[]
     dbUri:string
     name: string
+    host: string
     network: Network
 
     private constructor(input:InstanceInput) {
         this.name = input.name
+        this.host = input.host
         this.dbUri = input.dbUri
         if (input.consoleLog) this.consoleLog = input.consoleLog
         this.network = Network.get(input)
@@ -31,6 +34,7 @@ export default class Instance {
         const networkInfo = await this.network.getInfo()
         const info:IInstance = {
             name: this.name,
+            host: this.host,
             services: this.services,
             ...networkInfo
         }

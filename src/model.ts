@@ -9,6 +9,7 @@ export interface IInstanceModel extends mongoose.Model<IInstanceDoc> {
 
 export const schema = new mongoose.Schema<IInstanceDoc, IInstanceModel>({
     name: { type: String, unique: true, required: true },
+    host: { type: String, required: true },
     ip: String,
     port: Number,
     hasInternetAccess: Boolean,
