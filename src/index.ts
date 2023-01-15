@@ -1,97 +1,64 @@
-import ConsoleLog from "@winkgroup/console-log"
 import Cron from "@winkgroup/cron"
 import Db from "@winkgroup/db-mongo"
-import Network, { NetworkParams } from "@winkgroup/network"
-import { IInstance, InstanceService } from "./common"
+import Network from "@winkgroup/network"
 import { IInstanceDoc, IInstanceModel, schema } from './model'
 
-export interface InstanceInput extends Partial<NetworkParams> {
+export interface SetupInput {
+    network?: Network
     dbUri: string
     name: string
     host: string
-    consoleLog?: ConsoleLog
 }
 
 export default class Instance {
-    private static singleton:Instance
-    consoleLog = new ConsoleLog({ prefix: 'Instance' })
-    private cronManager = new Cron(4.5 * 60)
-    services = [] as InstanceService[]
-    dbUri:string
-    name: string
-    host: string
-    network: Network
+    static dbUri = ''
+    static doc:IInstanceDoc
+    static cronManager = new Cron(4.5 * 60)
+    static network:Network
 
-    private constructor(input:InstanceInput) {
-        this.name = input.name
-        this.host = input.host
-        this.dbUri = input.dbUri
-        if (input.consoleLog) this.consoleLog = input.consoleLog
-        this.network = Network.get(input)
-    }
-
-    async getInfo() {
-        const networkInfo = await this.network.getInfo()
-        const info:IInstance = {
-            name: this.name,
-            host: this.host,
-            services: this.services,
-            ...networkInfo
-        }
-
-        return info
-    }
-
-    getService(name:string) {
-        for (const service of this.services) {
-            if (service.name === name) return service
-        }
-        return null
-    }
-
-    getTypeServices(type: string) {
-        const services = [] as InstanceService[]
-        for (const service of this.services) {
-            if (service.type === type) services.push(service)
-        }
-        return services
-    }
-
-    getModel() {
+    static getModel() {
         const db = Db.get(this.dbUri)
         return db.model<IInstanceDoc, IInstanceModel>('instance', schema)
     }
 
-    async upsert() {
-        const Model = this.getModel()
-        const info = await this.getInfo()
-
-        await Model.findOneAndUpdate({name: info.name}, info, {upsert: true})
+    static async updateDocInfo() {
+        const networkInfo = await this.network.getInfo()
+        this.doc.hasInternetAccess = networkInfo.hasInternetAccess
+        this.doc.sshAccess = networkInfo.sshAccess
     }
 
-    async cron() {
+    static async upsert() {
+        await this.updateDocInfo()
+        await this.doc.save()
+    }
+
+    static async cron() {
         if (!this.cronManager.tryStartRun()) return
         await this.upsert()
         this.cronManager.runCompleted()
     }
 
-    async onExit() {
+    static async onExit() {
+        await this.doc.delete()
+    }
+
+    static async setup(input:SetupInput) {
+        this.dbUri = input.dbUri
         const Model = this.getModel()
-        await Model.deleteOne({name: this.name})
-    }
+        this.network = input.network ? input.network : Network.get()
 
-    static setup(input:InstanceInput) {
-        this.singleton = new Instance(input)
-        return this.singleton
-    }
-
-    static getOrSetup(input:InstanceInput) {
-        if (this.singleton) return this.singleton
-        return this.setup(input)
-    }
-
-    static get() {
-        if (!this.singleton) throw new Error('setup required to get Instance object')
-        return this.singleton
+        let doc = await Model.findOne({name: input.name})
+        if (!doc) {
+            this.doc = new Model({
+                ...this.network.getInfo(),
+                name: input.name,
+                host: input.host,
+                services: []
+            })
+        } else {
+            this.updateDocInfo()
+        }
+        await this.doc.save()
+        return this.doc
     }
 }
